@@ -561,14 +561,15 @@ namespace t18 {
 			void _do_subscribeAllTrades(const size_t payloadLen) {
 				//the packet contents is a string, so putting terminating null char at the end
 				m_readBuf.emplace_back(0);
+				//therefore now strlen(m_readBuf.data()) can't be longer, than payloadLen
 				
 				char* pReq = static_cast<char*>(m_readBuf.data());
-				if (UNLIKELY(::strnlen_s(pReq, maxPossible_Cli2Srv_Packet_Payload_Len) != payloadLen
-					|| m_readBuf.size() != payloadLen + 1))
-				{
+
+				const auto realPayloadLen = ::strnlen_s(pReq, maxPossible_Cli2Srv_Packet_Payload_Len);
+				if (UNLIKELY(realPayloadLen != payloadLen || m_readBuf.size() != payloadLen + 1)) {
 					//#log
 					DBGQMESSAGE("_do_subscribeAllTrades: unexpected length of request='"s + pReq + "'("
-						+ ::std::to_string(::std::strlen(pReq)) + ") while packet len=" + ::std::to_string(payloadLen)
+						+ ::std::to_string(realPayloadLen) + ") while packet len=" + ::std::to_string(payloadLen)
 						+ " and buf size=" + ::std::to_string(m_readBuf.size()));
 				} else {
 					auto curDay = m_handler.hndGetTradeDate();
