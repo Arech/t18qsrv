@@ -411,8 +411,8 @@ namespace t18 {
 					sess.enqueue_packet(ProtoSrv2Cli::getClassesListResult, classlist);
 				} else {
 					//#log
-					sess.enqueue_packet(ProtoSrv2Cli::requestFailed, "Failed to get getClassesList");
-					m_mainQ->message("Failed to get getClassesList");
+					sess.enqueue_packet(ProtoSrv2Cli::requestFailed, "Failed to get getClassesList()");
+					m_mainQ->message("Failed to get getClassesList()");
 				}
 			}
 
@@ -420,31 +420,37 @@ namespace t18 {
 				T18_ASSERT(m_mainQ);
 				const char* classlist = m_mainQ->getClassesList();
 				if (classlist) {
-					//parsing classlist to obtain individual class code and querning sec list
-					const auto tlen = ::std::strlen(classlist) + 1;
-					auto ptr = ::std::make_unique<char[]>(tlen);
-					char* pCl = ptr.get();
+					//parsing classlist to obtain individual class code and querying sec list
+					constexpr size_t maxExpectedClassListLen = 64 * 1024;
+					const auto tlen = ::strnlen_s(classlist, maxExpectedClassListLen) + 1;
 
-					::std::memcpy(pCl, classlist, tlen);
+					if (tlen >= maxExpectedClassListLen+1) {
+						sess.enqueue_packet(ProtoSrv2Cli::requestFailed, "Obtained unexpectedly big getClassesList()");
+						m_mainQ->message("Obtained unexpectedly big getClassesList()");
+					} else {
+						auto ptr = ::std::make_unique<char[]>(tlen);
+						char* pCl = ptr.get();
 
-					::std::string ret;
-					ret.reserve(1024 * 1024);
+						::std::memcpy(pCl, classlist, tlen);
 
-					do {
-						auto pCur = pCl;
-						pCl = ::std::strchr(pCur, ',');
-						*pCl++ = 0;
+						::std::string ret;
+						ret.reserve(1024 * 1024); //should be enough. If not enough, it'll automatically extend
 
-						ret += pCur;
-						ret += "(";
+						do {
+							auto pCur = pCl;
+							pCl = ::std::strchr(pCur, ',');
+							*pCl++ = 0;
 
-						ret += m_mainQ->getClassSecurities(pCur);
+							ret += pCur;
+							ret += "(";
 
-						ret += ")";
-					} while (*pCl);
+							ret += m_mainQ->getClassSecurities(pCur);
 
-					sess.enqueue_packet(ProtoSrv2Cli::listAllTickersResult, ret);
+							ret += ")";
+						} while (*pCl);
 
+						sess.enqueue_packet(ProtoSrv2Cli::listAllTickersResult, ret);
+					}
 				} else {
 					//#log
 					sess.enqueue_packet(ProtoSrv2Cli::requestFailed, "Failed to get getClassesList");

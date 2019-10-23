@@ -21,6 +21,8 @@ Short description in English: this project makes a prototype of proxy-server plu
 
 ## Статус кода
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/369c66d7a94949388f86d2957a4d0319)](https://www.codacy.com/manual/Arech/t18qsrv?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Arech/t18qsrv&amp;utm_campaign=Badge_Grade)
+
 Всё стабильно работает как задумано, проблем неизвестно.
 
 Для успешной работы с `t18qsrv` необходимо понимание особенностей работы подсистемы `lua` внутри QUIK. В частности, важно понимать, что для успешного получения в `lua`, а значит и в `t18qsrv`, потока обезличенных сделок по тикеру, необходимо сначала настроить в QUIK их приём от брокера (например, создать таблицу обезличенных сделок по нужному тикеру). Заказать их через API в `lua` невозможно, поэтому запрос потока сделок, который не был предварительно заказан вручную, вернёт просто пустое множество.
@@ -53,16 +55,14 @@ Short description in English: this project makes a prototype of proxy-server plu
 
 ### Внешние зависимости
 
-- Кроме стандартных компонентов STL (использовалась версия stl из VC2015, но с другими не более старыми версиями проблем быть не должно)
- используются только некоторые компоненты библиотеки [Boost](https://www.boost.org/) в режиме "только заголовочные файлы" (использовалась версия 1.70, более свежие должны работать из коробки). Компиляции Boost не требуется.
+  - Кроме стандартных компонентов STL (использовалась версия stl из VC2015, но с другими не более старыми версиями проблем быть не должно)  используются только некоторые компоненты библиотеки [Boost](https://www.boost.org/) в режиме "только заголовочные файлы" (использовалась версия 1.70, более свежие должны работать из коробки). Компиляции Boost не требуется.
 
-- Фреймворк [t18](https://github.com/Arech/t18) содержит необходимые описания протокола и некоторые иные нужные части. Фреймворк достаточно скачать/клонировать в __над__-каталог проекта, в папку `../t18`, и он подхватится автоматически.
+  - Фреймворк [t18](https://github.com/Arech/t18) содержит необходимые описания протокола и некоторые иные нужные части. Фреймворк достаточно скачать/клонировать в __над__-каталог проекта, в папку `../t18`, и он подхватится автоматически.
 
-- [QluaCpp](https://github.com/elelel/qluacpp) используется в качестве интерфейса к QUIK. Вам нужно скачать исходный код проектов `QluaCpp` и [luacpp](https://github.com/elelel/luacpp), и прописать в свойствах проекта пути к их папкам `/include` на листе `VC++ Directories`, в атрибуте `Include Directories`.
+  - [QluaCpp](https://github.com/elelel/qluacpp) используется в качестве интерфейса к QUIK. Вам нужно скачать исходный код проектов `QluaCpp` и [luacpp](https://github.com/elelel/luacpp), и прописать в свойствах проекта пути к их папкам `/include` на листе `VC++ Directories`, в атрибуте `Include Directories`.
 
-  - так же необходимо скачать и разахивировать с любое место  бинарники Lua c оф.страницы проекта [https://sourceforge.net/projects/luabinaries/files/](https://sourceforge.net/projects/luabinaries/files/) той версии, которая максимально близка к используемой в QUIK. В ветках 7 и 8 используется Lua 5.1. Ей соответствует самая свежая версия [5.1.5](https://sourceforge.net/projects/luabinaries/files/5.1.5/Windows%20Libraries/Dynamic/) с сайта проекта. Для линковки из под VC2015 нужен архив [lua-5.1.5_Win32_dll14_lib.zip](https://sourceforge.net/projects/luabinaries/files/5.1.5/Windows%20Libraries/Dynamic/lua-5.1.5_Win32_dll14_lib.zip/download) для 32битной версии QUIK или [lua-5.1.5_Win64_dll14_lib.zip](https://sourceforge.net/projects/luabinaries/files/5.1.5/Windows%20Libraries/Dynamic/lua-5.1.5_Win64_dll14_lib.zip/download) для 64х битной. После скачивания и разархивирования, необходимо в свойствах проекта для соответствующей архитектуры сделать правки на том же листе `VC++ Directories`, - добавить путь к `/include` в атрибут `Include Directories` и добавить путь к корню разархивированной папки в атрибут `Library Directories`.
+    - так же необходимо скачать и разахивировать с любое место  бинарники Lua c оф.страницы проекта [https://sourceforge.net/projects/luabinaries/files/](https://sourceforge.net/projects/luabinaries/files/) той версии, которая максимально близка к используемой в QUIK. В ветках 7 и 8 используется Lua 5.1. Ей соответствует самая свежая версия [5.1.5](https://sourceforge.net/projects/luabinaries/files/5.1.5/Windows%20Libraries/Dynamic/) с сайта проекта. Для линковки из под VC2015 нужен архив [lua-5.1.5_Win32_dll14_lib.zip](https://sourceforge.net/projects/luabinaries/files/5.1.5/Windows%20Libraries/Dynamic/lua-5.1.5_Win32_dll14_lib.zip/download) для 32битной версии QUIK или [lua-5.1.5_Win64_dll14_lib.zip](https://sourceforge.net/projects/luabinaries/files/5.1.5/Windows%20Libraries/Dynamic/lua-5.1.5_Win64_dll14_lib.zip/download) для 64х битной. После скачивания и разархивирования, необходимо в свойствах проекта для соответствующей архитектуры сделать правки на том же листе `VC++ Directories`, - добавить путь к `/include` в атрибут `Include Directories` и добавить путь к корню разархивированной папки в атрибут `Library Directories`.
 
-  -  для решения проблем со сборкой проекта из-за `QLuaCpp`, смотрите [туториал](https://github.com/elelel/qluacpp-tutorial/tree/master/basic_tutorial).
+    -  для решения проблем со сборкой проекта из-за `QLuaCpp`, смотрите [туториал](https://github.com/elelel/qluacpp-tutorial/tree/master/basic_tutorial).
 
-- Быстрая lock-free очередь [readerwriterqueue](https://github.com/cameron314/readerwriterqueue). Проект надо скачать/клонировать в __над__-каталог `../_extern/readerwriterqueue/` и всё подхватится автоматически.
-
+  - Быстрая lock-free очередь [readerwriterqueue](https://github.com/cameron314/readerwriterqueue). Проект надо скачать/клонировать в __над__-каталог `../_extern/readerwriterqueue/` и всё подхватится автоматически.

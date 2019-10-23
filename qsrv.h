@@ -233,6 +233,13 @@ namespace t18 {
 				enqueue_packet(pid, str, N, flags7b);
 			}
 			void enqueue_packet(const ProtoSrv2Cli pid, const char*const str, const Srv2Cli_PacketHdr_flags_t flags7b = 0) {
+				//#sec The bad thing here is that we can't pre-set for sure the largest possible string length for strnlen_s().
+				// However, strlen() doesn't seems to be a security issue here, because by design this function either recieves 
+				//a data directly from QUIK, which is expected to be secure and properly null-terminated (in the other
+				// case there's nothing to talk about), or it's properly derived from this data and properly null-terminated
+				// (in other case the problem is with wrong function to call - that's a weak argument, but let it be for now)
+				// or it's directly specified C-string.
+				// 
 				enqueue_packet(pid, str, str ? ::std::strlen(str) : 0, flags7b);
 			}
 
@@ -292,8 +299,9 @@ namespace t18 {
 			// Also NO additional allocs permitted before either fix or dismiss is called, or the prev packet will be finalized
 			char* _alloc_packet(const ProtoSrv2Cli pid, const size_t payloadLen, const Srv2Cli_PacketHdr_flags_t flags7b = 0) {
 				T18_ASSERT(flags7b < 0x80);
+				T18_ASSERT(maxPossible_Cli2Srv_Packet_Payload_Len >= payloadLen);
+
 				const size_t TotalLen = Srv2Cli_PacketHdr_Size + payloadLen;
-				T18_ASSERT(::std::numeric_limits<decltype(Srv2Cli_PacketHdr().wTotalPacketLen)>::max() >= TotalLen);
 
 				m_writeQueue.emplace_back(TotalLen);
 				auto& s = m_writeQueue.back();
@@ -310,6 +318,8 @@ namespace t18 {
 			//fix may be skipped if realPayloadLen==payloadLen passed to _alloc_packet
 			void _fix_packet(const size_t realPayloadLen) {
 				T18_ASSERT(realPayloadLen > 0 || !"Dont fix empty packets, dismiss them!");
+				T18_ASSERT(maxPossible_Cli2Srv_Packet_Payload_Len >= realPayloadLen);
+
 				const size_t TotalLen = Srv2Cli_PacketHdr_Size + realPayloadLen;
 				if (UNLIKELY(m_writeQueue.size() == 0)) throw ::std::runtime_error("_fix_packet - Invalid queue state");
 				auto& s = m_writeQueue.back();
@@ -428,13 +438,13 @@ namespace t18 {
 							m_readBuf.reserve(expectedLen + 1);//we may need +1 to parse strings
 							asio::async_read(m_socket, asio::dynamic_buffer(m_readBuf, expectedLen)
 								, [this, self, expectedLen, packetType]
-								(const ::boost::system::error_code& error2, const ::std::size_t n2)
+								(const ::boost::system::error_code& error2, const ::std::size_t payloadLen)
 							{
 								// Check if the session was stopped while the operation was pending.
 								if (UNLIKELY(stopped())) return;
 
-								if (UNLIKELY(error2 || (n2 != expectedLen))) {
-									_log_read_failed(error2, n2, expectedLen, ("body("s 
+								if (UNLIKELY(error2 || (payloadLen != expectedLen))) {
+									_log_read_failed(error2, payloadLen, expectedLen, ("body("s 
 										+ ::std::to_string(static_cast<int>(packetType)) + ")").c_str());
 									stop(false);
 								} else {
@@ -443,7 +453,7 @@ namespace t18 {
 									//stopping the deadline timer to prevent false positive during possibly long
 									//processing of the packet
 									m_readDeadline.expires_at(asio::steady_timer::time_point::max());
-									_process_packet(packetType, n2);
+									_process_packet(packetType, payloadLen);
 
 									//repeat wait for incoming data
 									_read_request();
@@ -483,16 +493,16 @@ namespace t18 {
 
 			//////////////////////////////////////////////////////////////////////////
 			//packet processing MUST NOT issue any read commands. Write commands is OK
-			void _process_packet(const ProtoCli2Srv packetType, const size_t packetLen) {
+			void _process_packet(const ProtoCli2Srv packetType, const size_t payloadLen) {
 				T18_ASSERT(!packetHaveOnlyHeader(packetType));//leave here to ensure coherent handling
 
 				switch (packetType) {
 				case ProtoCli2Srv::subscribeAllTrades:
-					_do_subscribeAllTrades(packetLen);
+					_do_subscribeAllTrades(payloadLen);
 					break;
 
 				case ProtoCli2Srv::queryTickerInfo:
-					_do_queryTickerInfo(packetLen);
+					_do_queryTickerInfo(payloadLen);
 					break;
 
 				/*case ProtoCli2Srv::cancelAllTrades:
@@ -509,98 +519,102 @@ namespace t18 {
 				if (!m_writeQueue.empty()) write_responce();
 			}
 
-			void _do_queryTickerInfo(const size_t packetLen) {
+			void _do_queryTickerInfo(const size_t payloadLen) {
 				//the packet contents is a string, so putting terminating null char at the end
 				m_readBuf.emplace_back(0);
 
 				char* pReq = static_cast<char*>(m_readBuf.data());
-				if (UNLIKELY(::std::strlen(pReq) != packetLen || m_readBuf.size() != packetLen + 1)) {
+				if (UNLIKELY(::strnlen_s(pReq, maxPossible_Cli2Srv_Packet_Payload_Len) != payloadLen
+					|| m_readBuf.size() != payloadLen + 1))
+				{
 					//#log
 					DBGQMESSAGE("_do_queryTickerInfo: unexpected length");
-					return;
-				}
-				// For example: "TQBR(SBER,GAZP)" requests GAZP and SBER tickers info
-				do {
-					const char*const pClassCode = pReq;
-					auto pTicker = ::std::strchr(pReq, '(');
-					if (UNLIKELY(!pTicker)) {
-						DBGQMESSAGE("_do_queryTickerInfo: failed to find end of class code (");
-						return;
-					}
-					*pTicker++ = 0;
-
-					bool bNextIsATicker;
+				} else {
+					// For example: "TQBR(SBER,GAZP)" requests GAZP and SBER tickers info
 					do {
-						pReq = ::std::strpbrk(pTicker, ",)");
-						if (UNLIKELY(!pReq)) {
-							DBGQMESSAGE("_do_queryTickerInfo: failed to find end of time field");
+						const char*const pClassCode = pReq;
+						auto pTicker = ::std::strchr(pReq, '(');
+						if (UNLIKELY(!pTicker)) {
+							DBGQMESSAGE("_do_queryTickerInfo: failed to find end of class code (");
 							return;
 						}
-						bNextIsATicker = *pReq == ',';
-						*pReq++ = 0;
+						*pTicker++ = 0;
 
-						m_handler.hndQueryTickerInfo(*this, pClassCode, pTicker);
+						bool bNextIsATicker;
+						do {
+							pReq = ::std::strpbrk(pTicker, ",)");
+							if (UNLIKELY(!pReq)) {
+								DBGQMESSAGE("_do_queryTickerInfo: failed to find end of time field");
+								return;
+							}
+							bNextIsATicker = *pReq == ',';
+							*pReq++ = 0;
 
-						pTicker = pReq;
-					} while (bNextIsATicker);
-				} while (*pReq != 0);
+							m_handler.hndQueryTickerInfo(*this, pClassCode, pTicker);
+
+							pTicker = pReq;
+						} while (bNextIsATicker);
+					} while (*pReq != 0);
+				}
 			}
 
-			void _do_subscribeAllTrades(const size_t packetLen) {
+			void _do_subscribeAllTrades(const size_t payloadLen) {
 				//the packet contents is a string, so putting terminating null char at the end
 				m_readBuf.emplace_back(0);
 				
 				char* pReq = static_cast<char*>(m_readBuf.data());
-				if (UNLIKELY(::std::strlen(pReq) != packetLen || m_readBuf.size() != packetLen + 1)) {
+				if (UNLIKELY(::strnlen_s(pReq, maxPossible_Cli2Srv_Packet_Payload_Len) != payloadLen
+					|| m_readBuf.size() != payloadLen + 1))
+				{
 					//#log
 					DBGQMESSAGE("_do_subscribeAllTrades: unexpected length of request='"s + pReq + "'("
-						+ ::std::to_string(::std::strlen(pReq)) + ") while packet len=" + ::std::to_string(packetLen)
+						+ ::std::to_string(::std::strlen(pReq)) + ") while packet len=" + ::std::to_string(payloadLen)
 						+ " and buf size=" + ::std::to_string(m_readBuf.size()));
-					return;
-				}
-				auto curDay = m_handler.hndGetTradeDate();
-				// For example: "TQBR(SBER|,GAZP|100511.324123)" requests GAZP ticker since 10:05:11.324123 and all deals
-				//		for SBER since session start.
-				//searching for (
-				do {
-					const char*const pClassCode = pReq;
-					auto pTicker = ::std::strchr(pReq, '(');
-					if (UNLIKELY(!pTicker)) {
-						DBGQMESSAGE("_do_subscribeAllTrades: failed to find end of class code (");
-						return;
-					}
-					*pTicker++ = 0;
-
-					bool bNextIsATicker;
-
+				} else {
+					auto curDay = m_handler.hndGetTradeDate();
+					// For example: "TQBR(SBER|,GAZP|100511.324123)" requests GAZP ticker since 10:05:11.324123 and all deals
+					//		for SBER since session start.
+					//searching for (
 					do {
-						auto pTime = ::std::strchr(pTicker, '|');
-						if (UNLIKELY(!pTime)) {
-							DBGQMESSAGE("_do_subscribeAllTrades: failed to find end of ticker name");
+						const char*const pClassCode = pReq;
+						auto pTicker = ::std::strchr(pReq, '(');
+						if (UNLIKELY(!pTicker)) {
+							DBGQMESSAGE("_do_subscribeAllTrades: failed to find end of class code (");
 							return;
 						}
-						*pTime++ = 0;
+						*pTicker++ = 0;
 
-						pReq = ::std::strpbrk(pTime, ",)");
-						if (UNLIKELY(!pReq)) {
-							DBGQMESSAGE("_do_subscribeAllTrades: failed to find end of time field");
-							return;
-						}
-						bNextIsATicker = *pReq == ',';
-						*pReq++ = 0;
+						bool bNextIsATicker;
 
-						auto thisTime = curDay;
-						//if (UNLIKELY(!thisTime.sscanf_time(pTime))) {
-						if (UNLIKELY(!thisTime.sscanf_full(pTime))) {
-							DBGQMESSAGE("_do_subscribeAllTrades: failed to parse time");
-							return;
-						}
+						do {
+							auto pTime = ::std::strchr(pTicker, '|');
+							if (UNLIKELY(!pTime)) {
+								DBGQMESSAGE("_do_subscribeAllTrades: failed to find end of ticker name");
+								return;
+							}
+							*pTime++ = 0;
 
-						m_handler.hndSubscribeAllTrades(*this, pClassCode, pTicker, thisTime);
+							pReq = ::std::strpbrk(pTime, ",)");
+							if (UNLIKELY(!pReq)) {
+								DBGQMESSAGE("_do_subscribeAllTrades: failed to find end of time field");
+								return;
+							}
+							bNextIsATicker = *pReq == ',';
+							*pReq++ = 0;
 
-						pTicker = pReq;
-					} while (bNextIsATicker);
-				} while (*pReq != 0);
+							auto thisTime = curDay;
+							//if (UNLIKELY(!thisTime.sscanf_time(pTime))) {
+							if (UNLIKELY(!thisTime.sscanf_full(pTime))) {
+								DBGQMESSAGE("_do_subscribeAllTrades: failed to parse time");
+								return;
+							}
+
+							m_handler.hndSubscribeAllTrades(*this, pClassCode, pTicker, thisTime);
+
+							pTicker = pReq;
+						} while (bNextIsATicker);
+					} while (*pReq != 0);
+				}
 			}
 
 			void _do_cancelAllTrades() {
