@@ -21,8 +21,6 @@ Short description in English: this project makes a prototype of proxy-server plu
 
 ## Статус кода
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/369c66d7a94949388f86d2957a4d0319)](https://www.codacy.com/manual/Arech/t18qsrv?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Arech/t18qsrv&amp;utm_campaign=Badge_Grade)
-
 Всё стабильно работает как задумано, проблем неизвестно.
 
 Для успешной работы с `t18qsrv` необходимо понимание особенностей работы подсистемы `lua` внутри QUIK. В частности, важно понимать, что для успешного получения в `lua`, а значит и в `t18qsrv`, потока обезличенных сделок по тикеру, необходимо сначала настроить в QUIK их приём от брокера (например, создать таблицу обезличенных сделок по нужному тикеру). Заказать их через API в `lua` невозможно, поэтому запрос потока сделок, который не был предварительно заказан вручную, вернёт просто пустое множество.
