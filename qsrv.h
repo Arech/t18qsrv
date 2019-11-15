@@ -17,6 +17,9 @@
 */
 #pragma once
 
+//#WARNING!!! The following code was taken almost as is from official boost::asio documentation and
+//it produces zombie objects! See elaborate problem description in Russian here  https://habr.com/ru/post/471326/
+
 #include <chrono>
 #include <memory>
 #include <deque>
