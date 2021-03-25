@@ -22,9 +22,17 @@
 #include "qproxy.h"
 
 T18_COMP_SILENCE_ZERO_AS_NULLPTR;
+
+#ifdef LUA53
+static struct luaL_Reg ls_lib[] = {
+	{ NULL, NULL }
+};
+#else
 static struct luaL_reg ls_lib[] = {
 	{ NULL, NULL }
 };
+#endif
+
 T18_COMP_POP;
 
 //////////////////////////////////////////////////////////////////////////
@@ -172,7 +180,13 @@ extern "C" {
 			::lua::function::OnStop().register_in_lua(l, OnStop);
 			::lua::function::OnAllTrade().register_in_lua(l, OnAllTrade);
 
+		#ifdef LUA53
+			::lua_newtable(L);
+			::luaL_setfuncs(L, ls_lib, 0);
+			::lua_setglobal(L, "t18qsrv");
+		#else
 			::luaL_openlib(L, "t18qsrv", ls_lib, 0);
+		#endif
 		}
 		return 0;
 	}

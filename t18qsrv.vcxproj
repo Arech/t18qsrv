@@ -77,8 +77,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\c++\lua\lua-5.1.5_$(Platform)_dll14_lib\include;D:\c++\elelel\luacpp\include;D:\c++\elelel\qluacpp\include;D:\c++\boost;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\c++\lua\lua-5.1.5_$(Platform)_dll14_lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\c++\lua\lua-5.3.5_$(Platform)_dll14_lib\include;D:\c++\boost;$(SolutionDir)\..\_extern\qluacpp2\luacpp\include;$(SolutionDir)\..\_extern\qluacpp2\qluacpp\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\c++\lua\lua-5.3.5_$(Platform)_dll14_lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -87,8 +87,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>D:\c++\lua\lua-5.1.5_$(Platform)_dll14_lib\include;D:\c++\elelel\luacpp\include;D:\c++\elelel\qluacpp\include;D:\c++\boost;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\c++\lua\lua-5.1.5_$(Platform)_dll14_lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\c++\lua\lua-5.3.5_$(Platform)_dll14_lib\include;D:\c++\boost;$(SolutionDir)\..\_extern\qluacpp2\luacpp\include;$(SolutionDir)\..\_extern\qluacpp2\qluacpp\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\c++\lua\lua-5.3.5_$(Platform)_dll14_lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

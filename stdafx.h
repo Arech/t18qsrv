@@ -31,6 +31,9 @@
 
 #define _USE_MATH_DEFINES // for C++ math constants
 
+//no need to automatically link boost libs
+#define BOOST_ALL_NO_LIB
+
 /*
 #ifndef WIN32
 #error("Quik supports only x86 .dlls. Change platform to compile")
@@ -44,6 +47,8 @@
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32)
 #define LUA_BUILD_AS_DLL
 #endif
+
+#define LUA53
 
 #include <chrono>
 #include <thread>
@@ -60,6 +65,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 // we need lua.lib
-#pragma comment(lib,"lua5.1.lib")
+//#pragma comment(lib,"lua5.1.lib")
+#pragma comment(lib,"lua53.lib")
 
 #include "../t18/t18/debug.h"
