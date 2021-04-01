@@ -479,14 +479,14 @@ namespace t18 {
 				}
 			}
 
-			// must send subscribeAllTradesResult packet and if successfull a set of AllTrades packets with trades since lastKnownDeal.
-			// If already subscribed for the ticker, then must resend trades/deals since lastKnownDeal
-			void hndSubscribeAllTrades(serv_session_t& sess, const char* pClass, const char* pTicker, mxTimestamp lastKnownDeal) {
+			// must send subscribeAllTradesResult packet and if successfull a set of AllTrades packets with trades since dealsSinceTs (including that time).
+			// If already subscribed for the ticker, then must resend trades/deals since dealsSinceTs (including that time)
+			void hndSubscribeAllTrades(serv_session_t& sess, const char* pClass, const char* pTicker, mxTimestamp dealsSinceTs) {
 				T18_ASSERT(m_mainQ && m_pMainSpinlock);
 				auto pTI = _getTickerInfo(pClass, pTicker);
 				if (LIKELY(pTI)) {
 					m_mainQ->message(::std::string("Subscribing to ") + pTI->to_string()
-						+ ", lastKnownDeal=" + lastKnownDeal.to_string());
+						+ ", dealsSinceTs=" + dealsSinceTs.to_string());
 					// main() (and therefore all hnd*() functions) works in a separate thread from quik's UI and on*() functions. Also we
 					// know nothing about which thread populate all_trades table. Therefore we cannot make any assumptions about
 					// how to fetch all the trades/deals from all_trades table and make sure we won't skip anything between the fetching
@@ -521,13 +521,13 @@ namespace t18 {
 					//sending success
 					_postSubscribeAllTradesSuccess(sess, pTI);
 
-					//finally we must send to session object all trades since lastKnownDeal to a trade nDeals
+					//finally we must send to session object all trades since dealsSinceTs to a trade nDeals
 					auto sendr{ sess.make_AllTrades_sender(maxDealsToSendOnAllTrades) };
 					mxTimestamp prevTs((tag_mxTimestamp()));//sanity check
 					qlua_table_elms_count_t i = 0;// , nFetched = 0;
 					try {
 						bool bNeverSaidBadTime{ true };
-						auto f = [&sendr, pClass, pTicker, lastKnownDeal, tid/*, &nFetched*/, &bNeverSaidBadTime, &prevTs, pQ = m_mainQ]
+						auto f = [&sendr, pClass, pTicker, dealsSinceTs, tid/*, &nFetched*/, &bNeverSaidBadTime, &prevTs, pQ = m_mainQ]
 						(const auto& allTrdEnt)
 						{
 							const auto& d = allTrdEnt();
@@ -543,7 +543,7 @@ namespace t18 {
 									mxTimestamp thisTs(dt.year, dt.month, dt.day, dt.hour, dt.min, dt.sec, dt.mcs);
 
 									if (prevTs <= thisTs) {//must be non strict inequality
-										if (thisTs > lastKnownDeal) {
+										if (thisTs >= dealsSinceTs) {
 											auto* ptr = sendr.newAllTrades();
 											//++nFetched;
 
@@ -579,7 +579,7 @@ namespace t18 {
 					} catch (const ::std::exception& ex) {
 						sendr.exceptionCaught();
 						const auto er = ::std::string("Failed to getItem(") + ::std::to_string(i) + ") for "
-							+ pTI->to_string() + ", lastKnownDeal=" + lastKnownDeal.to_string()
+							+ pTI->to_string() + ", dealsSinceTs=" + dealsSinceTs.to_string()
 							+ "\nexception = " + ex.what();
 						sess.enqueue_packet(ProtoSrv2Cli::requestFailed, er);
 						m_mainQ->message(er);

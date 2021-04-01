@@ -578,6 +578,8 @@ namespace t18 {
 					auto curDay = m_handler.hndGetTradeDate();
 					// For example: "TQBR(SBER|,GAZP|100511.324123)" requests GAZP ticker since 10:05:11.324123 and all deals
 					//		for SBER since session start.
+					// #BUGBUG eerrm... looks like the code is slightly more restrictive and always requires a timestamp to be specified.
+					// not a big deal now, just to draw attention
 					//searching for (
 					do {
 						const char*const pClassCode = pReq;
